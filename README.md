@@ -1,32 +1,11 @@
-# CS219
+# example-analyzer.py
 
-MobileInsight-Cloud (Cloud service and Web interface of MobileInsight)
+## Modifications
+1. input_path: either a file or directory containing logs
+2. outfile_name: name of output .json file 
 
-## Redis
+## Note
+Every log file contains multiple messages. 
 
-Currently, I use Redis Cloud as temporary solution because I don't have sudo permission on share environment. Will discuss with TA next Monday. You can connect the Redis with the following instruction.
-
-```python
-# python
-
-import redis
-
-r = redis.Redis(
-    host='redis-10435.c14.us-east-1-2.ec2.redns.redis-cloud.com',
-    port=10435,
-    password='BHzTa6uOoVa9F34BwZNDXxCNs7HnzEFn'
-)
-```
-
-```js
-import { createClient } from 'redis';
-
-const client = createClient({
-    password: 'BHzTa6uOoVa9F34BwZNDXxCNs7HnzEFn',
-    socket: {
-        host: 'redis-10435.c14.us-east-1-2.ec2.redns.redis-cloud.com',
-        port: 10435
-    }
-});
-```
-
+## .json file format
+Every .json file holds a dictionary that maps from (Log file name, [List of Dictionaries of Log Messages])
