@@ -47,15 +47,17 @@ class myAnalyzer(Analyzer):
 
             xml_msg = Event(msg.timestamp, msg.type_id, log_xml)
             
+            msg_dict = {}
             for field in xml_msg.data.iter('field'):
                 if field.get('showname') != None and field.get('value') != None:
                     showname = field.get('showname')
                     mask = np.array([char.isalpha() for char in list(showname)])
                     start_idx = np.where(mask)[0][0]
-                    msg_fields[showname[start_idx:]] = field.get('value')
+                    msg_dict[showname[start_idx:]] = field.get('value')
                     # self.field_list.append([showname[start_idx:], field.get('value')])
                     # print(showname[start_idx:], field.get('value'))
 
+            msg_fields['Msg'] = msg_dict
             self.field_list.append(msg_fields)
             # self.num_msgs += 1
             
