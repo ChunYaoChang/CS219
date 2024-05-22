@@ -29,21 +29,26 @@ class myAnalyzer(Analyzer):
     def __msg_callback(self, msg):
         
         msg_fields ={}
-        data = msg.data.decode()
+        # data = msg.data.decode()
+        data = msg.data.decode_json()
+        data = json.loads(data)
+
+        # print(type(data))
         # get the identifying fields like type_id, timestamp, msg_len, etc.
         for k in data.keys():
-            if k != 'Msg' and k != 'timestamp':
+            if k != 'Msg': #and k != 'timestamp':
                 msg_fields[k] = data[k]
-            if k == 'timestamp':
+            # if k == 'timestamp':
                 # print(type(data[k]))
                 # print(data[k].strftime("%Y-%m-%d %H:%M:%S.%f"))
-                msg_fields[k] = data[k].strftime("%Y-%m-%d %H:%M:%S.%f")
+                # msg_fields[k] = data[k].strftime("%Y-%m-%d %H:%M:%S.%f")
                 # # convert datatype into a string
 
         # get Msg contents of Log message
         if 'Msg' in data.keys():
             log_xml = ET.XML(data['Msg'])
         else:
+            self.field_list.append(msg_fields)
             return
 
         xml_msg = Event(msg.timestamp, msg.type_id, log_xml)
@@ -65,6 +70,7 @@ class myAnalyzer(Analyzer):
 def my_analysis(input_path):
     src = OfflineReplayer()
     src.set_input_path(input_path)
+    src.enable_log_all()
 
     analyzer = myAnalyzer()
     analyzer.set_source(src)
@@ -72,8 +78,8 @@ def my_analysis(input_path):
 
     return analyzer
 
-input_path = "./logs/"
-outfile_name = "logs.json"
+input_path = "./logs/offline_log_examples"
+outfile_name = "offline_log_examples_2.json"
 
 # get all log files in a directory
 log_list = []
@@ -88,6 +94,9 @@ elif os.path.isdir(input_path):
 else:
     print("ERROR!")
 
+# UNCOMMENT following line to get ALL logs
+# log_list = log_list[:2]
+
 logs = {}
 for log_input in log_list:
     stats = my_analysis(log_input)
@@ -98,6 +107,9 @@ with open(outfile_name, "w") as outfile:
     json.dump(logs, outfile, indent=4)
 
 print(logs.keys())
+
+# LTE_RRC_MIB_Packet
+# LTE_NAS_EMM_State
 
 # # TA's .csv version
 # fout = open('outlog1.csv', 'a')
