@@ -139,36 +139,38 @@ with display_tab:
                                             key='time_range_picker')
 
         keys_filtered_df, keys_filtered_args = filter_df(keys_df, filename_selector, type_id_selector, datetime_selector)
-        key_table = st.dataframe(keys_filtered_df[['filename', 'type_id', 'timestamp', 'order']], on_select="rerun", selection_mode="single-row")
+        left_column, right_column = st.columns(2)
+
 
         # @st.cache_data
         def download_json(selected_json):
             # IMPORTANT: Cache the conversion to prevent computation on every rerun
             return json.dumps(selected_json)
         
-        left_column, right_column, _, _ = st.columns(4)
-        if left_column.button(label="Download Filtered mi2log file"):
+        left_button, right_button = left_column.columns(2)
+        if left_button.button(label="Download Filtered mi2log file"):
             # Run the script and capture the output
             with st.status("Downloading mi2log file..."):
                 result = subprocess.run(['python', 'download_mi2log.py', repr(pickle.dumps(keys_filtered_args))], capture_output=True, text=True)
 
         filtered_json = list(keys_filtered_df['original_key'].apply(lambda k : r.json().get(k))),
-        right_column.download_button(
+        right_button.download_button(
             label="Download Filtered JSON",
             data=download_json(filtered_json),
             file_name='filtered_log.json',
             mime="application/json",
         )
+        key_table = left_column.dataframe(keys_filtered_df[['filename', 'type_id', 'timestamp', 'order']], on_select="rerun", selection_mode="single-row")
             
         if key_table['selection']['rows']:
             selected_json = r.json().get(keys_filtered_df.iloc[key_table['selection']['rows'][0]]['original_key'])
-            st.download_button(
+            right_column.download_button(
                 label="Download Selected JSON",
                 data=download_json(selected_json),
                 file_name='selected_log.json',
                 mime="application/json",
             )
-            st.json(selected_json)
+            right_column.json(selected_json)
 
     else:
         st.write("No records in Redis")
