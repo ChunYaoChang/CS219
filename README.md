@@ -14,3 +14,11 @@ pip install -r requirement.txt
 ```bash
 streamlit run gui.py
 ```
+
+## Compilation
+This repo supports timestamp-based filtering which requires recompiling modified code. To recompile, follow these steps:
+1. cd mobileinsight-core
+2. sudo python3 setup.py bdist_wheel
+3. sudo pip install ./dist/MobileInsight-6.0.0-cp310-cp310-linux_x86_64.whl --force-reinstall
+4. python3 ./examples/offline-analysis-filtering.py
+
