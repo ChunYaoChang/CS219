@@ -69,7 +69,7 @@ class myAnalyzer(Analyzer):
 
 def my_analysis(input_path):
     src = OfflineReplayer()
-    src.set_input_path(input_path)
+    src.set_input_path(os.path.join(".", input_path))
     src.enable_log_all()
 
     analyzer = myAnalyzer()

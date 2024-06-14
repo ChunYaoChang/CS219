@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from streamlit_date_picker import date_range_picker, PickerType
 import subprocess
 import pickle
+import time
 
 from mobile_insight.analyzer.analyzer import *
 from mobile_insight.monitor import OfflineReplayer
@@ -98,7 +99,6 @@ def upload_log(uploaded_log):
         # stats.field_list = log messages in each log file
         log_json[log_name] = stats.field_list
 
-    log_json
     categorized_items = {}
 
     for filename, file_contents in log_json.items():
@@ -150,7 +150,7 @@ with display_tab:
         left_button, right_button = left_column.columns(2)
         if left_button.button(label="Download Filtered mi2log file"):
             # Run the script and capture the output
-            with st.status("Downloading mi2log file..."):
+            with left_column.status("Downloading mi2log file..."):
                 result = subprocess.run(['python', 'download_mi2log.py', repr(pickle.dumps(keys_filtered_args))], capture_output=True, text=True)
 
         filtered_json = list(keys_filtered_df['original_key'].apply(lambda k : r.json().get(k))),
@@ -176,7 +176,16 @@ with display_tab:
         st.write("No records in Redis")
 
 with upload_tab:
-    uploaded_log = st.file_uploader("Choose a file")
-    if uploaded_log is not None:
-        with st.status("Uploading mi2log file..."):
-            upload_log(uploaded_log)
+    uploaded_log = st.file_uploader("Choose a file", accept_multiple_files=True)
+    if len(uploaded_log) > 0:
+        progress_text = "Uploading mi2log file..."
+        progress_bar = st.progress(0, text=progress_text)
+        # with st.status("Uploading mi2log file..."):
+        start_time = time.time()
+        for e, log in enumerate(uploaded_log):
+            upload_log(log)
+            progress_bar.progress(int((e + 1) / len(uploaded_log) * 100), text=progress_text + f'({(e+1)}/{len(uploaded_log)})')
+        time.sleep(1)
+        progress_bar.empty()
+        # st.success(f'Finish uploading with {time.time() - start_time} seconds', icon="✅")
+        st.success(f'Finish uploading', icon="✅")
