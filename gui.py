@@ -15,7 +15,7 @@ import time
 
 from mobile_insight.analyzer.analyzer import *
 from mobile_insight.monitor import OfflineReplayer
-from my_analyzer import my_analysis
+from my_analyzer import my_analysis, download_bytes
 
 st.set_page_config(layout="wide")
 st.title('MobileInsight-Cloud')
@@ -93,7 +93,7 @@ def filter_df(keys_df, filename_selector, type_id_selector, datetime_selector):
 def upload_log(uploaded_log):
     bytes_log = uploaded_log.getvalue()
     log_name = uploaded_log.name
-    stats = my_analysis(log_name)
+    stats = my_analysis(bytes_log)
     log_json = {}
     if len(stats.field_list) > 0:
         # stats.field_list = log messages in each log file
@@ -147,11 +147,23 @@ with display_tab:
             # IMPORTANT: Cache the conversion to prevent computation on every rerun
             return json.dumps(selected_json)
         
+        def download_mi2log(args):
+            return download_bytes(args)
+        
         left_button, right_button = left_column.columns(2)
-        if left_button.button(label="Download Filtered mi2log file"):
-            # Run the script and capture the output
-            with left_column.status("Downloading mi2log file..."):
-                result = subprocess.run(['python', 'download_mi2log.py', repr(pickle.dumps(keys_filtered_args))], capture_output=True, text=True)
+        left_button.download_button(
+            label="Download Filtered mi2log File",
+            data=download_mi2log(keys_filtered_args),
+            file_name='filtered_log.mi2log',
+            mime="application/octet-stream",
+        )
+        # if left_button.button(label="Download Filtered mi2log file"):
+        #     mi2log_object = download_mi2log(keys_filtered_args)
+
+        #     # Run the script and capture the output
+        #     with left_column.status("Downloading mi2log file..."):
+        #         result = subprocess.run(['python', 'download_mi2log.py', repr(pickle.dumps(keys_filtered_args))], capture_output=True, text=True)
+                
 
         filtered_json = list(keys_filtered_df['original_key'].apply(lambda k : r.json().get(k))),
         right_button.download_button(

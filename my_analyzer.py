@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import redis
 
 import numpy as np
 try:
@@ -65,11 +66,16 @@ class myAnalyzer(Analyzer):
 
         msg_fields['Msg'] = msg_dict
         self.field_list.append(msg_fields)
+
+r = redis.Redis(
+    host='127.0.0.1',
+    port=6379
+)
             
 
-def my_analysis(input_path):
+def my_analysis(input_object):
     src = OfflineReplayer()
-    src.set_input_path(os.path.join(".", input_path))
+    src.set_input_file(input_object)
     src.enable_log_all()
 
     analyzer = myAnalyzer()
@@ -77,3 +83,19 @@ def my_analysis(input_path):
     src.run()
 
     return analyzer
+
+def download_bytes(args):
+    src = OfflineReplayer()
+    src.set_input_file(r.get(f'{args["filename"]}:mi2log'))
+
+    if args['type_ids']:
+        for type_id in args['type_ids']:
+            src.enable_log(type_id, args['start_date'], args['end_date'])
+    else:
+        src.enable_log_all(args['start_date'], args['end_date'])
+
+    src.save_log_as(os.path.join(os.getcwd(), 'filter_log.mi2log'))
+    # analyzer = myAnalyzer()
+    # analyzer.set_source(src)
+    src.run()
+    return bytes(src.output_bytes_object)
