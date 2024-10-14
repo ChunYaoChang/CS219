@@ -94,7 +94,6 @@ def download_bytes(args):
     else:
         src.enable_log_all(args['start_date'], args['end_date'])
 
-    src.save_log_as(os.path.join(os.getcwd(), 'filter_log.mi2log'))
     # analyzer = myAnalyzer()
     # analyzer.set_source(src)
     src.run()
