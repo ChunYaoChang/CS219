@@ -109,7 +109,7 @@ with display_tab:
         end_hour_col, end_minute_col, end_second_col = end_time_col.columns(3)
         end_hour_selector = end_hour_col.selectbox('End Hour', options=hours, index=keys_df['timestamp'].max().hour)
         end_minute_selector = end_minute_col.selectbox('End Minute', options=minutes, index=keys_df['timestamp'].max().minute)
-        end_second_selector = end_second_col.selectbox('End Second', options=seconds, index=keys_df['timestamp'].max().second)
+        end_second_selector = end_second_col.selectbox('End Second', options=seconds, index=keys_df['timestamp'].max().second+1)
 
         # Combine the date and time inputs for start and end time into a full datetime object
         start_date = pd.to_datetime(f"{start_date_selector} {start_hour_selector}:{start_minute_selector}:{start_second_selector}")
@@ -129,7 +129,6 @@ with display_tab:
             'start_date': start_date,
             'end_date': end_date
         }
-
         left_column, right_column = st.columns(2)
 
         # @st.cache_data
