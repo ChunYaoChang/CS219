@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import redis
+from pymongo import MongoClient
 
 import numpy as np
 try:
@@ -71,7 +72,9 @@ r = redis.Redis(
     host='127.0.0.1',
     port=6379
 )
-            
+
+client = MongoClient("localhost", 27017)
+db = client['mobile_insight']
 
 def my_analysis(input_object):
     src = OfflineReplayer()
@@ -86,10 +89,10 @@ def my_analysis(input_object):
 
 def download_bytes(args):
     src = OfflineReplayer()
-    src.set_input_file(r.get(f'{args["filename"]}:mi2log'))
+    src.set_input_file(db['mi2log'].find_one({'filename': args['filename']})['data'])
 
-    if args['type_ids']:
-        for type_id in args['type_ids']:
+    if args['type_id']:
+        for type_id in args['type_id']:
             src.enable_log(type_id, args['start_date'], args['end_date'])
     else:
         src.enable_log_all(args['start_date'], args['end_date'])
