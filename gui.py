@@ -16,35 +16,10 @@ import concurrent.futures
 from mobile_insight.analyzer.analyzer import *
 from mobile_insight.monitor import OfflineReplayer
 from my_analyzer import my_analysis, download_bytes
+from config import PAGE_TOP_STYLE
 
 st.set_page_config(layout='wide')
-st.markdown('''
-    <style>
-    
-           /* Remove blank space at top and bottom */ 
-           .block-container {
-               padding-top: 1rem;
-               padding-bottom: 0rem;
-            }
-           
-           /* Remove blank space at the center canvas */ 
-           .st-emotion-cache-z5fcl4 {
-               position: relative;
-               top: -62px;
-               }
-           
-           /* Make the toolbar transparent and the content below it clickable */ 
-           .st-emotion-cache-18ni7ap {
-               pointer-events: none;
-               background: rgb(255 255 255 / 0%)
-               }
-           .st-emotion-cache-zq5wmm {
-               pointer-events: auto;
-               background: rgb(255 255 255);
-               border-radius: 5px;
-               }
-    </style>
-    ''', unsafe_allow_html=True)
+st.markdown(PAGE_TOP_STYLE, unsafe_allow_html=True)
 
 st.title('MobileInsight-Cloud')
 cur_path = os.getcwd()
@@ -149,13 +124,15 @@ with upload_tab:
 
 with display_tab:
     filename_list = db['mi2log'].distinct('filename')
+    st.header(st.session_state['filename_selector'] if 'filename_selector' in st.session_state else filename_list[0])
 
     if filename_list:
         with st.popover('Filter'):
 
             filename_selector = st.selectbox(
                 'Filename',
-                filename_list
+                filename_list,
+                key='filename_selector'
             )
             keys_df = load_data(filename_selector)
 
