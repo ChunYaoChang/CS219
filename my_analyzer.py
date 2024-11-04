@@ -3,6 +3,7 @@ import json
 import os
 import redis
 from pymongo import MongoClient
+from gridfs import GridFS
 
 import numpy as np
 try:
@@ -89,7 +90,10 @@ def my_analysis(input_object):
 
 def download_bytes(args):
     src = OfflineReplayer()
-    src.set_input_file(db['mi2log'].find_one({'filename': args['filename']})['data'])
+    file_id = db['mi2log'].find_one({'filename': args['filename']})['data_id']
+    # Retrieve the file data from GridFS
+    file_data = GridFS(db).get(file_id).read()
+    src.set_input_file(file_data)
 
     if args['type_id']:
         for type_id in args['type_id']:

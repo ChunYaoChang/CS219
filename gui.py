@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from streamlit_date_picker import date_range_picker, PickerType
 import time
 from pymongo import MongoClient
-import concurrent.futures
+from bson import Decimal128
+from gridfs import GridFS
 from streamlit_js_eval import streamlit_js_eval
 
 from mobile_insight.analyzer.analyzer import *
@@ -29,6 +30,7 @@ screen_inner_height = streamlit_js_eval(js_expressions='parent.window.innerHeigh
 time.sleep(0.1)
 client = MongoClient('localhost', 27017)
 db = client['mobile_insight']
+fs = GridFS(db)
 
 def transform_datetime(date_string):
     # Define the format of the date string
@@ -37,7 +39,7 @@ def transform_datetime(date_string):
     date_object = datetime.strptime(date_string, date_format)
     return date_object
 
-# @st.cache_data
+@st.cache_data
 def load_data(filename):
     df = pd.DataFrame(db[filename].find({}, {'type_id': 1, 'timestamp': 1, 'order': 1, '_id': 0}))
 
@@ -55,28 +57,55 @@ def upload_log(uploaded_log):
     if len(stats.field_list) > 0:
         # stats.field_list = log messages in each log file
         log_json = stats.field_list
-        for e, content in enumerate(log_json):
-            content['order'] = e
-            content['timestamp'] = transform_datetime(content['timestamp'])
-
-        db = client['mobile_insight']
+        # with open('tmp.json', 'w') as f:
+        #     json.dump(log_json, f, indent=4)
         collection = db[log_name]
         if log_name in db.list_collection_names():
             collection.delete_many({})
         collection.create_index([('type_id', 1), ('timestamp', 1), ('order', 1)])
-        collection.insert_many(log_json)
+
+        processed_data = []
+        batch_size = 1024
+        for e, content in enumerate(log_json):
+            content['order'] = e
+            content['timestamp'] = transform_datetime(content['timestamp'])
+            if 'Subpackets' in content:
+                if isinstance(content['Subpackets'], list):
+                    for sub in content['Subpackets']:
+                        if 'SRB Ciphering Keys' in sub:
+                            sub['SRB Ciphering Keys'] = str(sub['SRB Ciphering Keys'])
+                            sub['DRB Ciphering Keys'] = str(sub['DRB Ciphering Keys'])
+
+            processed_data.append(content)
+
+        # Function to split list into chunks
+        def chunk_list(data, chunk_size):
+            for i in range(0, len(data), chunk_size):
+                yield data[i:i + chunk_size]
+        # Insert in batches
+        for batch in chunk_list(processed_data, batch_size):
+            collection.insert_many(batch)
 
         mi2log_collection = db['mi2log']
-        # Perform the upsert
+        # Check if the file already exists
+        existing_file = mi2log_collection.find_one({'filename': log_name})
+        if existing_file:
+            # Delete the existing file from GridFS if you want to replace it
+            fs.delete(existing_file['data_id'])
+
+        # Save the large file in GridFS
+        file_id = fs.put(bytes_log, filename=log_name)
+
+        # Upsert the document with the GridFS file reference
         mi2log_collection.update_one(
-            {'filename': log_name},  # Search for the document with this filename
+            {'filename': log_name},
             {
-                '$set': {  # Update the fields if the document exists
+                '$set': {
                     'upload_time': datetime.now(),
-                    'data': bytes_log
+                    'data_id': file_id  # Store reference to GridFS file
                 }
             },
-            upsert=True  # Insert the document if it doesn't exist
+            upsert=True
         )
 
 # @st.cache_data
@@ -101,27 +130,10 @@ with upload_tab:
         progress_bar = st.progress(0, text=progress_text)
         # with st.status('Uploading mi2log file...'):
         start_time = time.time()
-        # for e, log in enumerate(uploaded_log):
-        #     upload_log(log)
-        #     progress_bar.progress(int((e + 1) / len(uploaded_log) * 100), text=progress_text + f'({(e+1)}/{len(uploaded_log)})')
-
-        # Use ThreadPoolExecutor to manage parallel execution with timeout
-        timeout_duration = 10
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for e, log in enumerate(uploaded_log):
-                future = executor.submit(upload_log, log)
-                
-                try:
-                    # Set a timeout for each file upload
-                    future.result(timeout=timeout_duration)
-                    st.info(f'Successfully uploaded {log.name}')
-                except concurrent.futures.TimeoutError:
-                    st.error(f'Timeout: {log.name} took more than {timeout_duration} seconds to upload.')
-                except Exception as e:
-                    st.error(f'Error while uploading {log.name}: {str(e)}')
-                
-                # Update progress bar
-                progress_bar.progress(int((e + 1) / len(uploaded_log) * 100), text=progress_text + f'({(e+1)}/{len(uploaded_log)})')
+        for e, log in enumerate(uploaded_log):
+            upload_log(log)
+            progress_bar.progress(int((e + 1) / len(uploaded_log) * 100), text=progress_text + f'({(e+1)}/{len(uploaded_log)})')
+            st.info(f'Successfully uploaded {log.name}')
         time.sleep(1)
         progress_bar.empty()
         # st.success(f'Finish uploading with {time.time() - start_time} seconds', icon='✅')
@@ -131,7 +143,7 @@ with upload_tab:
         st.rerun()
 
 with manage_files_tab:
-    files_df = pd.DataFrame(db['mi2log'].find({}, {'filename': 1, '_id': 0}).sort('upload_time', 1))
+    files_df = pd.DataFrame(db['mi2log'].find({}, {'filename': 1, 'upload_time': 1, '_id': 0}).sort('upload_time', 1))
     files_df.reset_index(drop=True, inplace=True)
     if not files_df.empty:
         files_table = st.dataframe(files_df, on_select='rerun', selection_mode='multi-row')
@@ -155,6 +167,7 @@ with manage_files_tab:
             if len(files_table['selection']['rows']) > 0:
                 for row in files_table['selection']['rows']:
                     filename = files_df.iloc[row]['filename']
+                    fs.delete(db['mi2log'].find_one({'filename': filename})['data_id'])
                     db['mi2log'].delete_one({'filename': filename})
                     db.drop_collection(filename)
                 st.rerun()
