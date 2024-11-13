@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from streamlit_date_picker import date_range_picker, PickerType
 import time
 from pymongo import MongoClient
-from bson import Decimal128
 from gridfs import GridFS
 from streamlit_js_eval import streamlit_js_eval
 
@@ -20,7 +19,7 @@ from mobile_insight.monitor import OfflineReplayer
 from my_analyzer import my_analysis, download_bytes
 from config import PAGE_TOP_STYLE
 
-st.set_page_config(layout='wide')
+# st.set_page_config(layout='wide')
 screen_inner_width, screen_inner_height = 0, 0
 st.title('MobileInsight-Cloud')
 st.markdown(PAGE_TOP_STYLE, unsafe_allow_html=True)
@@ -113,6 +112,7 @@ def download_json(selected_json):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
     return json.dumps(selected_json, indent=4)
 
+@st.cache_data
 def download_mi2log(args):
     return download_bytes(args)
 
@@ -226,6 +226,7 @@ with display_tab:
                 st.error('Start time cannot be later than end time.')
 
             keys_df = keys_df[(keys_df['timestamp'] >= start_date) & (keys_df['timestamp'] < end_date)]
+            keys_df.reset_index(drop=True, inplace=True)
 
             keys_filtered_args = {
                 'filename': filename_selector,
@@ -261,8 +262,8 @@ with display_tab:
             mime='application/json',
         )
 
-        key_table = left_column.dataframe(keys_df[['type_id', 'timestamp', 'order']], on_select='rerun', selection_mode='single-row', width=screen_inner_width // 2, height=screen_inner_height - 330)
-            
+        key_table = left_column.dataframe(keys_df[['type_id', 'timestamp', 'order']], on_select='rerun', selection_mode='single-row', width=screen_inner_width // 2, height=screen_inner_height - 360)
+
         if key_table['selection']['rows']:
             selected_json = db[filename_selector].find_one(keys_df.iloc[key_table['selection']['rows'][0]].to_dict(), {'_id': 0})
             selected_json['timestamp'] = selected_json['timestamp'].isoformat()
@@ -273,7 +274,7 @@ with display_tab:
                 file_name='selected_log.json',
                 mime='application/json',
             )
-            with right_column.container(height=screen_inner_height - 330):
+            with right_column.container(height=screen_inner_height - 360):
                 st.json(selected_json)
 
     else:
