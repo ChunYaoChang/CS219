@@ -13,6 +13,7 @@ import time
 from pymongo import MongoClient
 from gridfs import GridFS
 from streamlit_js_eval import streamlit_js_eval
+import plotly.express as px
 
 from mobile_insight.analyzer.analyzer import *
 from mobile_insight.monitor import OfflineReplayer
@@ -262,10 +263,23 @@ with display_tab:
             mime='application/json',
         )
 
+        keys_df['timestamp_aggregate'] = keys_df['timestamp'].dt.floor('5s')
+        timestamp_counts = keys_df['timestamp_aggregate'].value_counts().sort_index()
+        # Convert to a DataFrame for visualization
+        count_df = timestamp_counts.reset_index()
+        count_df.columns = ['timestamp', 'count']
+        fig = px.bar(count_df, x='timestamp', y='count')
+        timestamp_selector = st.plotly_chart(fig, on_select='rerun')
+        # st.write(timestamp_selector['selection'])
+        if timestamp_selector['selection']['points']:
+            keys_df = keys_df[keys_df['timestamp_aggregate'] == timestamp_selector.selection['points'][0]['x']]
+
         key_table = left_column.dataframe(keys_df[['type_id', 'timestamp', 'order']], on_select='rerun', selection_mode='single-row', width=screen_inner_width // 2, height=screen_inner_height - 360)
 
+        # st.write(key_table)
+
         if key_table['selection']['rows']:
-            selected_json = db[filename_selector].find_one(keys_df.iloc[key_table['selection']['rows'][0]].to_dict(), {'_id': 0})
+            selected_json = db[filename_selector].find_one(keys_df.iloc[key_table['selection']['rows'][0]][['type_id', 'timestamp', 'order']].to_dict(), {'_id': 0})
             selected_json['timestamp'] = selected_json['timestamp'].isoformat()
 
             right_column.download_button(
