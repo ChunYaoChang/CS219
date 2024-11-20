@@ -108,10 +108,13 @@ def upload_log(uploaded_log):
             upsert=True
         )
 
-# @st.cache_data
-def download_json(selected_json):
+@st.cache_data
+def download_json(filtered_json_args):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
-    return json.dumps(selected_json, indent=4)
+    filtered_json = list(db[filename_selector].find(filtered_json_args, {'_id': 0}))
+    for js in filtered_json:
+        js['timestamp'] = js['timestamp'].isoformat()
+    return json.dumps(filtered_json, indent=4)
 
 @st.cache_data
 def download_mi2log(args):
@@ -184,7 +187,7 @@ with display_tab:
     filename_list = [doc['filename'] for doc in db['mi2log'].find({}, {'filename': 1, '_id': 0}).sort('upload_time', 1)]
 
     if filename_list:
-        with st.popover(f"`{st.session_state['filename_selector'] if 'filename_selector' in st.session_state else filename_list[0]}`"):
+        with st.popover(f"`{st.session_state['filename_selector'] if 'filename_selector' in st.session_state else filename_list[0]}`", help='Click here for filtering and display adjustment'):
 
             filename_selector = st.selectbox(
                 'Filename',
@@ -236,7 +239,8 @@ with display_tab:
                 'end_date': end_date
             }
 
-            left_right_ratio = st.slider('Ratio', min_value=1, max_value=99, value=50)
+            left_right_ratio = st.slider('Ratio', min_value=1, max_value=99, value=50, help='Adjust the ratio of dataframe and selected json data')
+            timestamp_scale = st.slider('Timestamp Scale (s)', min_value=1, max_value=60, value=5, help='Adjust the timestamp scale in the bar chart')
         left_column, right_column = st.columns([left_right_ratio, 100 - left_right_ratio])
 
         
@@ -252,30 +256,31 @@ with display_tab:
             'type_id': {'$in': keys_filtered_args['type_id']},
             'timestamp': {'$gte': keys_filtered_args['start_date'], '$lt': keys_filtered_args['end_date']},
         }
-        filtered_json = list(db[filename_selector].find(filtered_json_args, {'_id': 0}))
-        for js in filtered_json:
-            js['timestamp'] = js['timestamp'].isoformat()
 
         right_button.download_button(
             label='Download Filtered JSON',
-            data=download_json(filtered_json),
+            data=download_json(filtered_json_args),
             file_name='filtered_log.json',
             mime='application/json',
         )
 
-        keys_df['timestamp_aggregate'] = keys_df['timestamp'].dt.floor('5s')
+        keys_df['timestamp_aggregate'] = keys_df['timestamp'].dt.floor(f'{timestamp_scale}s')
         timestamp_counts = keys_df['timestamp_aggregate'].value_counts().sort_index()
         # Convert to a DataFrame for visualization
         count_df = timestamp_counts.reset_index()
         count_df.columns = ['timestamp', 'count']
         fig = px.bar(count_df, x='timestamp', y='count')
-        timestamp_selector = st.plotly_chart(fig, on_select='rerun')
+
+        num_records_col, records_chart_col = st.columns([0.1, 0.9])
+        timestamp_selector = records_chart_col.plotly_chart(fig, on_select='rerun')
+        st.info('Select the bars to filter the dataframe. Click "Pan" for single selection and "Box Select" or "Lasso Select" for multiple selection. Double click the selected bars to unselect')
         # st.write(timestamp_selector['selection'])
         if timestamp_selector['selection']['points']:
-            keys_df = keys_df[keys_df['timestamp_aggregate'] == timestamp_selector.selection['points'][0]['x']]
+            keys_df = keys_df[keys_df['timestamp_aggregate'].isin([d['x'] for d in timestamp_selector.selection['points']])]
+            keys_df.reset_index(inplace=True, drop=True)
 
         key_table = left_column.dataframe(keys_df[['type_id', 'timestamp', 'order']], on_select='rerun', selection_mode='single-row', width=screen_inner_width // 2, height=screen_inner_height - 360)
-
+        num_records_col.metric('Number of Records', len(keys_df))
         # st.write(key_table)
 
         if key_table['selection']['rows']:
