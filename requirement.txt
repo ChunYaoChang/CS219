@@ -1,5 +1,0 @@
-pandas
-numpy
-streamlit
-redis
-streamlit_date_picker
