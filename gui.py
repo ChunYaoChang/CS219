@@ -247,6 +247,33 @@ def download_mi2log(args: dict) -> bytes:
         st.error(f"Error downloading mi2log: {e}")
         return b""
 
+@st.fragment
+def download_filtered_data(keys_filtered_args):
+    left, mid, right = st.columns(3)
+    if left.button('Prepare Download'):
+
+        mid.download_button(
+            label="Download Filtered mi2log File",
+            data=download_mi2log(keys_filtered_args),
+            file_name="filtered_log.mi2log",
+            mime="application/octet-stream",
+        )
+
+        filtered_json_args = {
+            "timestamp": {
+                "$gte": keys_filtered_args["start_date"],
+                "$lt": keys_filtered_args["end_date"],
+            },
+        }
+
+        if keys_filtered_args["type_id"]:
+            filtered_json_args["type_id"] = {"$in": keys_filtered_args["type_id"]}
+        right.download_button(
+            label="Download Filtered JSON",
+            data=download_json(filename_selector, filtered_json_args),
+            file_name="filtered_log.json",
+            mime="application/json",
+        )
 
 # Initialize App
 screen_inner_width, screen_inner_height = initialize_app()
@@ -408,30 +435,8 @@ with display_tab:
         left_column, right_column = st.columns(
             [left_right_ratio, 100 - left_right_ratio]
         )
-
-        left_button, right_button = left_column.columns(2)
-        left_button.download_button(
-            label="Download Filtered mi2log File",
-            data=download_mi2log(keys_filtered_args),
-            file_name="filtered_log.mi2log",
-            mime="application/octet-stream",
-        )
-
-        filtered_json_args = {
-            "timestamp": {
-                "$gte": keys_filtered_args["start_date"],
-                "$lt": keys_filtered_args["end_date"],
-            },
-        }
-
-        if keys_filtered_args["type_id"]:
-            filtered_json_args["type_id"] = {"$in": keys_filtered_args["type_id"]}
-        right_button.download_button(
-            label="Download Filtered JSON",
-            data=download_json(filename_selector, filtered_json_args),
-            file_name="filtered_log.json",
-            mime="application/json",
-        )
+        with left_column.container():
+            download_filtered_data(keys_filtered_args)
 
         # Create a DataFrame for visualization
         keys_df["timestamp_aggregate"] = keys_df["timestamp"].dt.floor(
