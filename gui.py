@@ -208,7 +208,7 @@ def create_datetime_selector() -> tuple[pd.Timestamp, pd.Timestamp]:
 
 
 @st.cache_data
-def download_json(filter_args: dict) -> str:
+def download_json(filename: str, filter_args: dict) -> str:
     """
     Retrieves and converts filtered MongoDB data to a JSON string.
 
@@ -219,7 +219,7 @@ def download_json(filter_args: dict) -> str:
         str: JSON-formatted string of the filtered data.
     """
     try:
-        filtered_data = list(db[filename_selector].find(filter_args, {"_id": 0}))
+        filtered_data = list(db[filename].find(filter_args, {"_id": 0}))
         for entry in filtered_data:
             entry["timestamp"] = entry["timestamp"].isoformat()
         if len(filtered_data) == 1:
@@ -418,16 +418,17 @@ with display_tab:
         )
 
         filtered_json_args = {
-            "type_id": {"$in": keys_filtered_args["type_id"]},
             "timestamp": {
                 "$gte": keys_filtered_args["start_date"],
                 "$lt": keys_filtered_args["end_date"],
             },
         }
 
+        if keys_filtered_args["type_id"]:
+            filtered_json_args["type_id"] = {"$in": keys_filtered_args["type_id"]}
         right_button.download_button(
             label="Download Filtered JSON",
-            data=download_json(filtered_json_args),
+            data=download_json(filename_selector, filtered_json_args),
             file_name="filtered_log.json",
             mime="application/json",
         )
@@ -469,14 +470,14 @@ with display_tab:
 
             right_column.download_button(
                 label="Download Selected JSON",
-                data=download_json(selected_json_args),
+                data=download_json(filename_selector, selected_json_args),
                 file_name="selected_log.json",
                 mime="application/json",
             )
             with right_column.container(
                 height=screen_inner_height - INNER_HEIGHT_DELTA
             ):
-                st.json(download_json(selected_json_args))
+                st.json(download_json(filename_selector, selected_json_args))
 
     else:
         st.info("No records in MongoDB")
